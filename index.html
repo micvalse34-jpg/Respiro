@@ -15,7 +15,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Literata:opsz,wght@7..72,400;7..72,500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Cormorant+Garamond:ital,wght@1,500&family=Literata:opsz,wght@7..72,400;7..72,500&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#ECEFE9; --surface:#F8F9F5; --surface2:#E1E6DF; --line:#D0D7CF; --ink:#172428; --muted:#5A696B;
@@ -525,12 +525,27 @@ details.info summary .gr{margin-left:auto;margin-right:10px}
 .dosein label{display:inline-flex;align-items:center;gap:8px}
 .dosein input{width:76px;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font-variant-numeric:tabular-nums}
 
+/* ---- marchio: Cormorant corsivo, puntino della i azzurro ---- */
+.brand{gap:0}
+.wm{font-family:'Cormorant Garamond','Cormorant',Georgia,serif;font-style:italic;font-weight:500;font-size:2rem;line-height:1;letter-spacing:.005em;color:var(--ink)}
+.wm-i{position:relative;display:inline-block}
+.wm-i i{position:absolute;left:54%;top:.22em;width:.15em;height:.15em;margin-left:-.02em;border-radius:50%;background:var(--in)}
+
+/* ---- v14: hero più misurato, tag a cosa serve ---- */
+.hero{padding:10px 0 2px;gap:14px}
+.orb{width:52px;height:52px}
+.hero h1{font-size:1.45rem;font-weight:500}
+.hero p{font-size:.9rem;margin-top:2px}
+.goaltags{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 2px}
+.goaltags .need{padding:6px 12px 6px 10px;font-size:.84rem;background:var(--surface)}
+.goaltags .need i{width:8px;height:8px}
+
 </style>
 </head>
 <body>
 <div id="appTop"></div>
 <div id="shell">
-  <header class="top"><span class="brand"><span id="logo"></span>Respiro</span><button class="iconbtn" id="btnSettings" aria-label="Impostazioni"></button></header>
+  <header class="top"><span class="brand" aria-label="Respiro"><span class="wm" aria-hidden="true">Resp<span class="wm-i">ı<i></i></span>ro</span></span><button class="iconbtn" id="btnSettings" aria-label="Impostazioni"></button></header>
   <nav class="nav" aria-label="Percorsi"><div class="nav-in"><div class="seg-nav">
     <button data-v="home">Scegli</button><button data-v="library">Pratiche</button><button data-v="training">Allenamento</button><button data-v="builder">Crea</button>
   </div></div></nav>
@@ -2325,7 +2340,7 @@ const NOSLEEP_MEDIA = {"webm":"data:video/webm;base64,GkXfowEAAAAAAAAfQoaBAUL3gQ
 /* ===== Respiro · interfaccia v2 ===== */
 (function () {
 'use strict';
-const APP_VERSION = '2.0';
+const APP_VERSION = '13 (15 ottobre 2026)';
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -2684,7 +2699,8 @@ function renderPractice() {
     <div class="hero-cover">${coverSvg(pr.id)}</div>
     <div class="dhead"><div class="dtitle"><h2>${esc(pr.name)}</h2><button class="favbtn" id="pFav" aria-pressed="${!!favOf(pr.id)}" aria-label="${favOf(pr.id) ? 'Togli dai preferiti' : 'Aggiungi ai preferiti'}">${favOf(pr.id) ? ICON.starOn : ICON.star}</button></div>${pr.alias ? `<p class="alias">${esc(pr.alias)}</p>` : ''}
     ${favOf(pr.id) && (JSON.stringify(favOf(pr.id).p) !== JSON.stringify(p) || favOf(pr.id).time !== sh.time) ? '<p class="small"><button class="linkbtn" id="pFavUp">Aggiorna il preferito con questi parametri</button></p>' : ''}</div>
-    <div class="badges"><span class="badge">${esc(FAMILIES[pr.fam])}</span><span class="badge m-${pr.mode}">${MODES[pr.mode]}</span>${pr.ver ? '' : '<span class="badge nv">protocollo non verificato</span>'}<span class="badge">${intDots(pr.int)} ${intText[pr.int]}</span>${pr.diff ? `<span class="badge">${DIFF_L[pr.diff]}</span>` : ''}${pr.grade ? `<span class="badge">${gradeChip(pr.grade)} evidenza ${GRADES[pr.grade].l.toLowerCase()}</span>` : ''}</div>
+    ${(pr.goals || []).length ? `<div class="goaltags">${pr.goals.filter(g => GOAL_SHORT[g]).map(g => `<button class="need" style="${catVar(GOALCOL[g])}" data-goal="${g}"><i></i>${esc(GOAL_SHORT[g])}</button>`).join('')}</div>` : ''}
+    <div class="badges"><span class="badge">${esc(FAMILIES[pr.fam] || '')}</span><span class="badge">${intDots(pr.int)} ${intText[pr.int]}</span>${pr.diff ? `<span class="badge">${DIFF_L[pr.diff]}</span>` : ''}${pr.grade ? `<span class="badge">${gradeChip(pr.grade)} evidenza ${GRADES[pr.grade].l.toLowerCase()}</span>` : ''}</div>
     ${pr.tod ? `<div class="todline">${pr.tod.split('').map(k => `<span>${todIcon(k)}${TOD_L[k]}</span>`).join('')}</div>` : ''}
     ${pr.story ? `<div class="story"><p>${esc(pr.story)}</p></div>` : ''}
     <h3 class="sec">Anteprima dell\u2019esercizio</h3>
@@ -2730,6 +2746,7 @@ function renderPractice() {
     <div class="stickybar"><button class="btn primary wide" id="shStart2">${startLbl}</button></div></div>`;
   $('#pBack').onclick = back;
   startPreview(pr, p);
+  $$('[data-goal]', v).forEach(b => b.onclick = () => { lib = Object.assign(lib, { goal: b.dataset.goal, q: '', kind: '', tod: '' }); go('library'); });
   const sr = $('#stdReset'); if (sr) sr.onclick = () => { Object.assign(p, paramsOf(pr)); sh.time = pr.def; remember(); rerenderKeep(); };
   $$('[data-var]', v).forEach(b => b.onclick = () => { keepStd(() => Object.assign(p, pr.variants[+b.dataset.var].set)); remember(); rerenderKeep(); });
   bindParams(v, pr, p); bindDose(v);
@@ -3377,7 +3394,7 @@ function renderSettings() {
 }
 
 /* ---------- avvio ---------- */
-$('#logo').innerHTML = ICON.logo; $('#btnSettings').innerHTML = ICON.gear; $('#btnSettings').onclick = () => go('settings');
+$('#btnSettings').innerHTML = ICON.gear; $('#btnSettings').onclick = () => go('settings');
 $$('.seg-nav button').forEach(b => b.onclick = () => go(b.dataset.v));
 const qs = (location.search.match(/[?&]v=([a-z]+)/) || [])[1];
 route = { name: qs && TABS.indexOf(qs) >= 0 ? qs : 'home' }; render(false);
