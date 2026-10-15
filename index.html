@@ -2454,13 +2454,40 @@ function segsHasRhythm(pr) { return pr.fam === 'rapida' || pr.fam === 'dispositi
 /* ---------- routing in flusso ---------- */
 let route = { name: 'home' }; const stack = [];
 const TABS = ['home', 'library', 'training', 'builder'];
+let curTab = 'home';
+/* ---------- cronologia: il tasto Indietro di Android torna alla schermata precedente ---------- */
+function snap(extra) {
+  const s = { r: { name: route.name, arg: route.arg }, tab: curTab };
+  if (route.name === 'home') s.ck = Object.assign({}, ck);
+  if (route.name === 'practice' && sh) s.sh = { id: sh.pr.id, p: Object.assign({}, sh.p), time: sh.time };
+  return Object.assign(s, extra || {});
+}
+function histPush(extra) { try { history.pushState(snap(extra), ''); } catch (e) {} }
+function histReplace() { try { history.replaceState(Object.assign({}, history.state || {}, snap())); } catch (e) {} }
 function go(name, arg, push) {
   if (push !== false && TABS.indexOf(name) < 0) stack.push(route); else if (TABS.indexOf(name) >= 0) stack.length = 0;
-  route = { name, arg }; render(true);
+  route = { name, arg }; render(true); histPush();
 }
-function back() { route = stack.pop() || { name: 'home' }; render(true); }
+function back() { try { if (history.state && history.state.r) { history.back(); return; } } catch (e) {} route = stack.pop() || { name: 'home' }; render(true); }
+function ckGo() { renderHome(); toTop(); histPush(); }
+let histGuarded = false;
+document.addEventListener('pointerdown', () => { if (histGuarded) return; histGuarded = true; try { history.replaceState({ root: true }, ''); history.pushState(snap(), ''); } catch (e) {} }, { capture: true });
+window.addEventListener('popstate', e => {
+  const st = e.state || {};
+  if ($('#session').classList.contains('open')) {
+    if (ss && ss.state === 'run') { pause(false); histPush({ session: true }); toast('In pausa. Premi ancora Indietro per uscire'); return; }
+    doCloseSession();
+  }
+  if (st.root) { route = { name: 'home' }; curTab = 'home'; ck = { step: 0, state: null, int: 2, time: 300 }; render(true); histPush(); toast('Sei nella pagina iniziale'); return; }
+  if (!st.r) return;
+  route = st.r; if (st.tab) curTab = st.tab;
+  if (st.ck) ck = Object.assign({}, st.ck);
+  if (st.sh && route.name === 'practice') { const pr = getPractice(st.sh.id) || userPractices().find(x => x.id === st.sh.id); if (pr) sh = { pr, p: Object.assign({}, st.sh.p), time: st.sh.time, defTime: pr.def || 300 }; }
+  render(true);
+});
 function render(scrollTop) {
-  const tabName = TABS.indexOf(route.name) >= 0 ? route.name : (stack.length ? (stack.find(r => TABS.indexOf(r.name) >= 0) || {}).name : null);
+  if (TABS.indexOf(route.name) >= 0) curTab = route.name;
+  const tabName = curTab;
   $$('.seg-nav button').forEach(b => b.setAttribute('aria-current', b.dataset.v === tabName ? 'page' : 'false'));
   ({ home: renderHome, library: renderLibrary, training: renderTraining, builder: renderBuilder, practice: renderPractice, composite: renderComposite, settings: renderSettings })[route.name]();
   if (scrollTop) toTop();
@@ -2481,7 +2508,7 @@ function renderHome() {
       <div class="states">${STATES.map(s => `<button class="state2" data-s="${s.id}"><span class="scov">${stateCoverSvg(s.id)}</span><b>${esc(s.l)}</b><span>${esc(s.d)}</span></button>`).join('')}</div>
       <div class="paths"><button class="path" data-go="library"><b>Esplora le pratiche</b><span>${PRACTICES.length} tecniche per esigenza</span></button><button class="path" data-go="training"><b>Allenamento</b><span>Apnea, muscoli, rapporti</span></button></div>
       ${decisionTable()}</div>`;
-    $$('.state2', v).forEach(b => b.onclick = () => { ck.state = b.dataset.s; const asks = DECISION[ck.state].asks; ck.step = asks ? 1 : 2; if (!asks) ck.int = 2; renderHome(); toTop(); });
+    $$('.state2', v).forEach(b => b.onclick = () => { ck.state = b.dataset.s; const asks = DECISION[ck.state].asks; ck.step = asks ? 1 : 2; if (!asks) ck.int = 2; ckGo(); });
     $$('[data-go]', v).forEach(b => b.onclick = () => go(b.dataset.go));
     bindQuick(v);
     $$('[data-now]', v).forEach(b => b.onclick = () => openPractice(b.dataset.now));
@@ -2494,15 +2521,15 @@ function renderHome() {
   if (ck.step === 1) {
     v.innerHTML = `<div class="wrap"><button class="back" id="ckBack">${ICON.back}Indietro</button>${steps}<h2 class="q">Quanta intensità vuoi?</h2><p class="qsub">Filtra le opzioni. Più intensa non vuol dire più efficace.</p>
       ${INTENSITY.map(i => `<button class="opt" data-i="${i.v}"><span><b>${i.l}</b><br><span>${['', 'Ritmi tranquilli, nessuna ritenzione lunga', 'Ritmi pieni, ritenzioni brevi', 'Anche respirazioni rapide e ritenzioni'][i.v]}</span></span>${intDots(i.v)}</button>`).join('')}</div>`;
-    $('#ckBack').onclick = () => { ck.step = 0; renderHome(); };
-    $$('.opt', v).forEach(b => b.onclick = () => { ck.int = +b.dataset.i; ck.step = 2; renderHome(); toTop(); });
+    $('#ckBack').onclick = () => back();
+    $$('.opt', v).forEach(b => b.onclick = () => { ck.int = +b.dataset.i; ck.step = 2; ckGo(); });
     return;
   }
   if (ck.step === 2) {
     v.innerHTML = `<div class="wrap"><button class="back" id="ckBack">${ICON.back}Indietro</button>${steps}<h2 class="q">Quanto tempo hai?</h2><p class="qsub">In tutto, preparazione e chiusura comprese.</p>
       ${TIMES.map(t => `<button class="opt" data-t="${t}"><b>${t / 60} minuti</b><span>${t <= 120 ? 'Reset rapido' : t >= 900 ? 'Sessione lunga' : ''}</span></button>`).join('')}</div>`;
-    $('#ckBack').onclick = () => { ck.step = st.asks ? 1 : 0; renderHome(); };
-    $$('.opt', v).forEach(b => b.onclick = () => { ck.time = +b.dataset.t; ck.step = 3; renderHome(); toTop(); });
+    $('#ckBack').onclick = () => back();
+    $$('.opt', v).forEach(b => b.onclick = () => { ck.time = +b.dataset.t; ck.step = 3; ckGo(); });
     return;
   }
   const rec = recommend(ck.state, ck.int, ck.time, S.settings.prep, S.settings.fin);
@@ -2520,7 +2547,7 @@ function renderHome() {
     ${comp ? `<div class="rec"><h3>${esc(comp.name)}</h3><div class="muted small">Programma composto, progettato dall\u2019app</div><p>${esc(comp.txt)}</p><button class="btn ghost" id="ckComp">Vedi il programma</button></div>` : ''}
     ${goal ? `<p style="margin-top:14px"><button class="linkbtn" id="ckMore">Tutte le pratiche per ${goal === 'energia' ? 'l\u2019attivazione' : 'il sonno'}</button></p>` : ''}
     ${decisionTable()}</div>`;
-  $('#ckBack').onclick = () => { ck = { step: 0, state: null, int: 2, time: 300 }; renderHome(); toTop(); };
+  $('#ckBack').onclick = () => { ck = { step: 0, state: null, int: 2, time: 300 }; ckGo(); };
   $$('[data-start]', v).forEach(b => b.onclick = () => { const r = rec.list[+b.dataset.start]; startSession(getPractice(r.id), r.params, { time: r.time, cycles: r.plan.cycles }); });
   $$('[data-open]', v).forEach(b => b.onclick = () => { const r = rec.list[+b.dataset.open]; openPractice(r.id, { params: r.params, time: r.time }); });
   if (comp) $('#ckComp').onclick = () => go('composite', comp.id);
@@ -2787,7 +2814,7 @@ function keepStd(fn) {
   fn();
   if (wasStd) { const len2 = cycleLength(pr, sh.p); if (len2) sh.time = Math.round(len2 * n * 100) / 100; }
 }
-function remember() { if (sh && sh.pr.id.indexOf('u_') !== 0) { S.last[sh.pr.id] = Object.assign({}, sh.p); save(); } }
+function remember() { later(histReplace); if (sh && sh.pr.id.indexOf('u_') !== 0) { S.last[sh.pr.id] = Object.assign({}, sh.p); save(); } }
 function currentPlan() { return compile(sh.pr, sh.p, { time: sh.time, prep: S.settings.prep, fin: S.settings.fin }); }
 function paramCtl(d) {
   const val = sh.p[d.k];
@@ -2916,7 +2943,7 @@ function startTimeline(plan, meta) {
     <div class="s-foot" id="sFoot"><div class="s-bar"><i id="sBar"></i></div><div class="s-times"><span id="sEl">0:00 trascorsi</span><span id="sRem"></span></div><div class="wl" id="sWl"></div></div>`;
   const h = new Date().getHours();
   if (S.settings.nightAuto && (h >= 21 || h < 6) && S.settings.theme !== 'night') { ss.nightOn = true; document.documentElement.setAttribute('data-theme', 'night'); }
-  el.classList.remove('closing'); el.classList.add('open'); sizeSession(); toTop();
+  el.classList.remove('closing'); el.classList.add('open'); sizeSession(); toTop(); histPush({ session: true });
   const sndBtn = () => { const b = $('#sSnd'); b.innerHTML = ss.sound ? ICON.spk : ICON.mute; b.setAttribute('aria-label', ss.sound ? 'Disattiva segnali sonori' : 'Attiva segnali sonori'); b.style.color = ss.sound ? 'var(--ink)' : ''; };
   sndBtn();
   $('#sSnd').onclick = () => { ss.sound = !ss.sound; if (meta.sid) { S.sound[meta.sid] = ss.sound; save(); } if (ss.sound) { if (ensureAudio()) CUE.soft(); } else stopAudio(); sndBtn(); };
@@ -3113,6 +3140,10 @@ function finish(early) {
 }
 function exitFs() { try { const fe = document.fullscreenElement || document.webkitFullscreenElement; const fn = document.exitFullscreen || document.webkitExitFullscreen; if (fe && fn) { const r = fn.call(document); if (r && r.catch) r.catch(() => {}); } } catch (e) {} later(sizeSession); }
 function closeSession() {
+  try { if (history.state && history.state.session) { history.back(); return; } } catch (e) {}
+  doCloseSession();
+}
+function doCloseSession() {
   stopAudio();
   const el = $('#session'); if (!el.classList.contains('open') || el.classList.contains('closing')) return;
   if (ss) cancelAnimationFrame(ss.raf); wake(false); exitFs();
